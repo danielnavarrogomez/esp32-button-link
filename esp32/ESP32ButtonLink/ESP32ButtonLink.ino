@@ -7,7 +7,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-const char *BLE_DEVICE_NAME = "ESP32-POST-POC";
+const char *BLE_DEVICE_NAME = "ESP32 Button Link";
 // Fixed custom UUIDs for the ESP32 Button Link app. You can change them later if you
 // build multiple ESP32 device families and want separate BLE services.
 const char *BLE_SERVICE_UUID = "8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a001";
@@ -87,7 +87,7 @@ void sendPostRequestToPhone(const String &trigger, const String &detail) {
   sequenceNumber++;
 
   const String body =
-      "{\"device\":\"ESP32-POST-POC\",\"button\":\"" + String(buttonName) +
+      "{\"device\":\"ESP32 Button Link\",\"button\":\"" + String(buttonName) +
       "\",\"trigger\":\"" + trigger +
       "\",\"detail\":\"" + detail +
       "\",\"sequence\":" + String(sequenceNumber) +

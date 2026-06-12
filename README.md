@@ -16,7 +16,7 @@ esp32/ESP32ButtonLink/       Arduino ESP32 sketch
 The Android app listens for this custom BLE service and characteristic:
 
 ```text
-Device name:         ESP32-POST-POC
+Device name:         ESP32 Button Link
 Service UUID:        8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a001
 Characteristic UUID: 8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a002
 Properties:          READ, NOTIFY
@@ -40,7 +40,7 @@ The included ESP32 proof-of-concept sends a larger JSON payload:
   "url": "https://httpbin.org/post",
   "content_type": "application/json",
   "body": {
-    "device": "ESP32-POST-POC",
+    "device": "ESP32 Button Link",
     "button": "GPIO27",
     "trigger": "opto_burst",
     "detail": "10 on/off pulses within 2 seconds",
@@ -68,7 +68,7 @@ The app lets you:
 1. Install the debug APK or build it from source.
 2. Open **ESP32 Button Link**.
 3. Grant Bluetooth and notification permissions.
-4. Tap **Select ESP32** and choose `ESP32-POST-POC`.
+4. Tap **Select ESP32** and choose `ESP32 Button Link`.
 5. Add a tap/action.
 6. Set **Button / GPIO name** to `GPIO27`.
 7. Set the URL and method.
