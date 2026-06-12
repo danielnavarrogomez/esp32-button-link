@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -41,6 +42,7 @@ import com.navarrofernandez.esp32buttonlink.net.EndpointCaller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -395,6 +397,8 @@ public class MainActivity extends Activity {
 
         List<BluetoothDevice> devices = new ArrayList<>();
         ArrayAdapter<String> adapterList = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        addBondedDevices(adapter, devices, adapterList);
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.select_ble_device)
                 .setAdapter(adapterList, (d, which) -> {
@@ -403,31 +407,106 @@ public class MainActivity extends Activity {
                     updateSelectedDeviceText();
                     stopBleScan(scanner, null);
                 })
+                .setMessage(R.string.scan_empty_hint)
+                .setNeutralButton(R.string.manual_address, null)
                 .setNegativeButton(R.string.cancel, (d, which) -> stopBleScan(scanner, null))
                 .create();
 
         ScanCallback callback = new ScanCallback() {
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
-                BluetoothDevice device = result.getDevice();
-                String address = device.getAddress();
-                for (BluetoothDevice existing : devices) {
-                    if (existing.getAddress().equals(address)) {
-                        return;
-                    }
-                }
-                devices.add(device);
-                mainHandler.post(() -> {
-                    adapterList.add(deviceName(device) + "\n" + address);
-                    adapterList.notifyDataSetChanged();
-                });
+                addDevice(result.getDevice(), devices, adapterList);
+            }
+
+            @Override
+            public void onScanFailed(int errorCode) {
+                mainHandler.post(() -> Toast.makeText(
+                        MainActivity.this,
+                        getString(R.string.scan_failed, errorCode),
+                        Toast.LENGTH_LONG).show());
             }
         };
 
         dialog.setOnDismissListener(d -> stopBleScan(scanner, callback));
         dialog.show();
-        scanner.startScan(callback);
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> showManualBleAddressDialog());
+        Toast.makeText(this, R.string.scan_started, Toast.LENGTH_SHORT).show();
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build();
+        try {
+            scanner.startScan(null, settings, callback);
+        } catch (SecurityException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+        }
         mainHandler.postDelayed(() -> stopBleScan(scanner, callback), 10000);
+    }
+
+    private void addBondedDevices(
+            BluetoothAdapter adapter,
+            List<BluetoothDevice> devices,
+            ArrayAdapter<String> adapterList) {
+        if (!hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
+            return;
+        }
+        try {
+            Set<BluetoothDevice> bondedDevices = adapter.getBondedDevices();
+            if (bondedDevices == null) {
+                return;
+            }
+            for (BluetoothDevice device : bondedDevices) {
+                addDevice(device, devices, adapterList);
+            }
+        } catch (SecurityException ignored) {
+        }
+    }
+
+    private void addDevice(
+            BluetoothDevice device,
+            List<BluetoothDevice> devices,
+            ArrayAdapter<String> adapterList) {
+        String address = device.getAddress();
+        for (BluetoothDevice existing : devices) {
+            if (existing.getAddress().equals(address)) {
+                return;
+            }
+        }
+        devices.add(device);
+        mainHandler.post(() -> {
+            adapterList.add(deviceName(device) + "\n" + address);
+            adapterList.notifyDataSetChanged();
+        });
+    }
+
+    private void showManualBleAddressDialog() {
+        EditText address = field(
+                getString(R.string.manual_ble_address),
+                bleSettings.deviceAddress(),
+                InputType.TYPE_CLASS_TEXT);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.manual_address)
+                .setView(address)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.save, (dialog, which) -> {
+                    String value = address.getText().toString().trim();
+                    if (!BluetoothAdapter.checkBluetoothAddress(value)) {
+                        Toast.makeText(this, R.string.invalid_ble_address, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    bleSettings.saveDevice(value, "ESP32 Button Link");
+                    updateSelectedDeviceText();
+                })
+                .show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_BLE_PERMISSIONS) {
+            Toast.makeText(this, R.string.select_ble_device, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void startBleListener() {
