@@ -35,6 +35,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.navarrofernandez.esp32buttonlink.ble.BleSettingsRepository;
+import com.navarrofernandez.esp32buttonlink.ble.BleServiceStarter;
 import com.navarrofernandez.esp32buttonlink.ble.BleTriggerService;
 import com.navarrofernandez.esp32buttonlink.data.EndpointConfig;
 import com.navarrofernandez.esp32buttonlink.data.EndpointRepository;
@@ -84,6 +85,7 @@ public class MainActivity extends Activity {
         bleSettings = new BleSettingsRepository(this);
         endpoints = new ArrayList<>(repository.load());
         render();
+        BleServiceStarter.startIfReady(this);
     }
 
     private void render() {
@@ -405,6 +407,7 @@ public class MainActivity extends Activity {
                     BluetoothDevice device = devices.get(which);
                     bleSettings.saveDevice(device.getAddress(), deviceName(device));
                     updateSelectedDeviceText();
+                    startBleListener();
                     stopBleScan(scanner, null);
                 })
                 .setMessage(R.string.scan_empty_hint)
@@ -497,6 +500,7 @@ public class MainActivity extends Activity {
                     }
                     bleSettings.saveDevice(value, "ESP32 Button Link");
                     updateSelectedDeviceText();
+                    startBleListener();
                 })
                 .show();
     }
@@ -506,6 +510,7 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_BLE_PERMISSIONS) {
             Toast.makeText(this, R.string.select_ble_device, Toast.LENGTH_SHORT).show();
+            BleServiceStarter.startIfReady(this);
         }
     }
 
@@ -518,14 +523,9 @@ public class MainActivity extends Activity {
             return;
         }
 
-        Intent intent = new Intent(this, BleTriggerService.class);
-        intent.setAction(BleTriggerService.ACTION_START);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
+        if (BleServiceStarter.startIfReady(this)) {
+            Toast.makeText(this, R.string.listener_started, Toast.LENGTH_SHORT).show();
         }
-        Toast.makeText(this, R.string.listener_started, Toast.LENGTH_SHORT).show();
     }
 
     private void stopBleListener() {

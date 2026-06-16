@@ -51,6 +51,7 @@ public class BleTriggerService extends Service {
     private BluetoothGatt gatt;
     private String deviceAddress = "";
     private boolean running = false;
+    private boolean reconnectScheduled = false;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -91,10 +92,12 @@ public class BleTriggerService extends Service {
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
         if (adapter == null || !adapter.isEnabled()) {
             Log.w(TAG, "Bluetooth is unavailable or disabled");
+            scheduleReconnect(10000);
             return;
         }
 
         try {
+            reconnectScheduled = false;
             BluetoothDevice device = adapter.getRemoteDevice(deviceAddress);
             closeGatt();
             gatt = device.connectGatt(this, false, callback, BluetoothDevice.TRANSPORT_LE);
@@ -111,12 +114,14 @@ public class BleTriggerService extends Service {
             }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(TAG, "BLE connected");
-                bluetoothGatt.discoverServices();
+                if (!bluetoothGatt.discoverServices()) {
+                    scheduleReconnect(3000);
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(TAG, "BLE disconnected");
                 closeGatt();
                 if (running) {
-                    mainHandler.postDelayed(BleTriggerService.this::connect, 3000);
+                    scheduleReconnect(3000);
                 }
             }
         }
@@ -131,6 +136,8 @@ public class BleTriggerService extends Service {
                     service == null ? null : service.getCharacteristic(CHARACTERISTIC_UUID);
             if (characteristic == null) {
                 Log.w(TAG, "ESP32 trigger characteristic not found");
+                closeGatt();
+                scheduleReconnect(5000);
                 return;
             }
 
@@ -198,7 +205,20 @@ public class BleTriggerService extends Service {
 
     private void stopListening() {
         running = false;
+        reconnectScheduled = false;
+        mainHandler.removeCallbacksAndMessages(null);
         closeGatt();
+    }
+
+    private void scheduleReconnect(long delayMs) {
+        if (!running || reconnectScheduled) {
+            return;
+        }
+        reconnectScheduled = true;
+        mainHandler.postDelayed(() -> {
+            reconnectScheduled = false;
+            connect();
+        }, delayMs);
     }
 
     private void closeGatt() {
