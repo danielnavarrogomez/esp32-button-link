@@ -1,10 +1,10 @@
 <resources>
     <string name="app_name">ESP32 Button Link</string>
-    <string name="subtitle">Choose an ESP32 BLE device, then map each GPIO/button event to a URL action.</string>
-    <string name="add_tap">Add tap</string>
+    <string name="subtitle">Link ESP32 GPIO events to reliable phone-side URL actions.</string>
+    <string name="add_tap">Add action</string>
     <string name="edit_tap">Edit tap</string>
     <string name="delete_tap">Delete tap?</string>
-    <string name="no_taps">No taps yet.</string>
+    <string name="no_taps">No actions configured.</string>
     <string name="test">Test</string>
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
@@ -13,8 +13,9 @@
     <string name="method">Method</string>
     <string name="android_auto_icon">Icon</string>
     <string name="button_color">Button color</string>
-    <string name="github_repository">GitHub repository</string>
-    <string name="repo_url" translatable="false">https://github.com/danielnavarrogomez/esp32-button-link</string>
+    <string name="advanced_setup">Advanced setup</string>
+    <string name="device_label">Device</string>
+    <string name="battery_settings">Battery reliability settings</string>
     <string name="name">Name</string>
     <string name="url">URL</string>
     <string name="button_gpio_name">Button / GPIO name</string>
@@ -26,7 +27,7 @@
     <string name="url_error">URL must start with http:// or https://</string>
     <string name="calling">Calling %1$s</string>
     <string name="select_ble_device">Pair ESP32</string>
-    <string name="fallback_scan">Fallback scan</string>
+    <string name="fallback_scan">Bluetooth scan / manual address</string>
     <string name="companion_pairing_unavailable">Companion pairing is unavailable on this phone. Using Bluetooth scan fallback.</string>
     <string name="companion_pairing_failed">Companion pairing failed: %1$s</string>
     <string name="companion_pairing_started">Choose ESP32 Button Link in the system dialog.</string>
@@ -37,10 +38,11 @@
     <string name="scan_started">Scanning for BLE devices...</string>
     <string name="scan_empty_hint">If the list stays empty, enter the ESP32 MAC address manually.</string>
     <string name="invalid_ble_address">Invalid Bluetooth address.</string>
-    <string name="start_listener">Start listener</string>
-    <string name="stop_listener">Stop listener</string>
+    <string name="stop_listener">Pause listener</string>
     <string name="no_ble_device_selected">No BLE device selected.</string>
-    <string name="selected_ble_device">Selected BLE device: %1$s (%2$s)</string>
+    <string name="selected_ble_device">%1$s\n%2$s</string>
+    <string name="connection_ready">Automatic listener enabled</string>
+    <string name="connection_missing">Pair an ESP32 to enable automatic listening</string>
     <string name="select_device_first">Select the ESP32 BLE device first.</string>
     <string name="bluetooth_unavailable">Bluetooth LE is unavailable or disabled.</string>
     <string name="listener_started">BLE listener started</string>

@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
     private BleSettingsRepository bleSettings;
     private List<EndpointConfig> endpoints;
     private LinearLayout list;
+    private TextView listenerStatus;
     private TextView selectedDevice;
 
     @Override
@@ -127,35 +128,25 @@ public class MainActivity extends Activity {
         root.addView(subtitle);
 
         selectedDevice = new TextView(this);
-        selectedDevice.setTextSize(14);
-        selectedDevice.setTextColor(Color.rgb(91, 99, 113));
-        selectedDevice.setPadding(0, 0, 0, dp(10));
-        root.addView(selectedDevice);
+        listenerStatus = new TextView(this);
+        root.addView(devicePanel());
         updateSelectedDeviceText();
 
         LinearLayout bleActions = new LinearLayout(this);
         bleActions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actionParams = matchWrap();
+        actionParams.setMargins(0, dp(12), 0, dp(16));
 
         Button selectDevice = new Button(this);
         styleAction(selectDevice, R.string.select_ble_device, Color.rgb(11, 110, 253), true);
         selectDevice.setOnClickListener(v -> startCompanionPairing());
         bleActions.addView(selectDevice, weight());
 
-        Button startListener = new Button(this);
-        styleAction(startListener, R.string.start_listener, Color.rgb(22, 163, 74), false);
-        startListener.setOnClickListener(v -> startBleListener());
-        bleActions.addView(startListener, weight());
-
         Button stopListener = new Button(this);
-        styleAction(stopListener, R.string.stop_listener, Color.rgb(194, 65, 65), false);
+        styleAction(stopListener, R.string.stop_listener, Color.rgb(100, 116, 139), false);
         stopListener.setOnClickListener(v -> stopBleListener());
         bleActions.addView(stopListener, weight());
-        root.addView(bleActions, matchWrap());
-
-        Button fallbackScan = new Button(this);
-        styleAction(fallbackScan, R.string.fallback_scan, Color.rgb(78, 86, 101), false);
-        fallbackScan.setOnClickListener(v -> showBleDevicePicker());
-        root.addView(fallbackScan, matchWrap());
+        root.addView(bleActions, actionParams);
 
         Button add = new Button(this);
         add.setAllCaps(false);
@@ -174,19 +165,46 @@ public class MainActivity extends Activity {
         list.setPadding(0, 16, 0, 0);
         root.addView(list);
 
-        Button repo = new Button(this);
-        repo.setAllCaps(false);
-        repo.setText(R.string.github_repository);
-        repo.setTextSize(14);
-        repo.setTextColor(Color.rgb(78, 86, 101));
-        repo.setBackground(stroke(Color.TRANSPARENT, Color.rgb(180, 187, 198), dp(10)));
-        repo.setOnClickListener(v -> openRepository());
-        LinearLayout.LayoutParams repoParams = matchWrap();
-        repoParams.setMargins(0, dp(4), 0, 0);
-        root.addView(repo, repoParams);
+        Button advanced = new Button(this);
+        advanced.setAllCaps(false);
+        advanced.setText(R.string.advanced_setup);
+        advanced.setTextSize(14);
+        advanced.setTextColor(Color.rgb(78, 86, 101));
+        advanced.setBackground(stroke(Color.TRANSPARENT, Color.rgb(180, 187, 198), dp(10)));
+        advanced.setOnClickListener(v -> showAdvancedSetup());
+        LinearLayout.LayoutParams advancedParams = matchWrap();
+        advancedParams.setMargins(0, dp(4), 0, 0);
+        root.addView(advanced, advancedParams);
 
         setContentView(scrollView);
         renderList();
+    }
+
+    private LinearLayout devicePanel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(16), dp(14), dp(16), dp(14));
+        panel.setBackground(round(Color.WHITE, dp(8)));
+        panel.setElevation(dp(2));
+
+        TextView label = new TextView(this);
+        label.setText(R.string.device_label);
+        label.setTextSize(12);
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        label.setTextColor(Color.rgb(100, 116, 139));
+        panel.addView(label);
+
+        selectedDevice.setTextSize(16);
+        selectedDevice.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        selectedDevice.setTextColor(Color.rgb(19, 24, 33));
+        selectedDevice.setPadding(0, dp(4), 0, dp(8));
+        panel.addView(selectedDevice);
+
+        listenerStatus.setTextSize(13);
+        listenerStatus.setTextColor(Color.rgb(71, 85, 105));
+        panel.addView(listenerStatus);
+
+        return panel;
     }
 
     private void renderList() {
@@ -207,7 +225,7 @@ public class MainActivity extends Activity {
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(dp(16), dp(14), dp(16), dp(14));
-            card.setBackground(round(Color.WHITE, dp(14)));
+            card.setBackground(round(Color.WHITE, dp(8)));
             card.setElevation(dp(2));
 
             int endpointColor = parseColor(endpoint.color, Color.rgb(11, 110, 253));
@@ -217,7 +235,7 @@ public class MainActivity extends Activity {
             badge.setTextColor(Color.WHITE);
             badge.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             badge.setTextSize(15);
-            badge.setBackground(round(endpointColor, dp(14)));
+            badge.setBackground(round(endpointColor, dp(8)));
             LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(dp(56), dp(56));
             badgeParams.setMargins(0, 0, dp(14), 0);
             card.addView(badge, badgeParams);
@@ -462,6 +480,24 @@ public class MainActivity extends Activity {
         mainHandler.postDelayed(() -> stopBleScan(scanner, callback), 10000);
     }
 
+    private void showAdvancedSetup() {
+        String[] options = {
+                getString(R.string.fallback_scan),
+                getString(R.string.battery_settings)
+        };
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.advanced_setup)
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        showBleDevicePicker();
+                    } else {
+                        openBatterySettings();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     private void startCompanionPairing() {
         if (!ensureBlePermissions()) {
             return;
@@ -638,6 +674,13 @@ public class MainActivity extends Activity {
             return;
         }
         Toast.makeText(this, R.string.reliability_settings, Toast.LENGTH_LONG).show();
+        openBatterySettings();
+    }
+
+    private void openBatterySettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return;
+        }
         Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
         intent.setData(Uri.parse("package:" + getPackageName()));
         try {
@@ -686,8 +729,16 @@ public class MainActivity extends Activity {
         String address = bleSettings.deviceAddress();
         if (address.isEmpty()) {
             selectedDevice.setText(R.string.no_ble_device_selected);
+            if (listenerStatus != null) {
+                listenerStatus.setText(R.string.connection_missing);
+                listenerStatus.setTextColor(Color.rgb(148, 62, 62));
+            }
         } else {
             selectedDevice.setText(getString(R.string.selected_ble_device, name, address));
+            if (listenerStatus != null) {
+                listenerStatus.setText(R.string.connection_ready);
+                listenerStatus.setTextColor(Color.rgb(22, 101, 52));
+            }
         }
     }
 
@@ -848,11 +899,6 @@ public class MainActivity extends Activity {
         return "#0B6EFD";
     }
 
-    private void openRepository() {
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.repo_url)));
-        startActivity(intent);
-    }
-
     private void styleAction(Button button, int label, int color, boolean filled) {
         button.setAllCaps(false);
         button.setText(label);
@@ -860,7 +906,7 @@ public class MainActivity extends Activity {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setMinHeight(dp(40));
         button.setTextColor(filled ? Color.WHITE : color);
-        button.setBackground(filled ? round(color, dp(10)) : stroke(Color.TRANSPARENT, color, dp(10)));
+        button.setBackground(filled ? round(color, dp(8)) : stroke(Color.TRANSPARENT, color, dp(8)));
     }
 
     private String[] iconLabels() {
