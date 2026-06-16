@@ -56,9 +56,10 @@ The app uses `body.button` first when present, so the included sketch maps to th
 
 The app lets you:
 
-- Select the ESP32 BLE device from a scan list.
+- Pair the ESP32 using Android Companion Device Manager, with a manual scan/address fallback.
 - Automatically start a foreground BLE listener after a device is selected.
 - Restart the listener after app launch, app update, or phone boot when permissions allow it.
+- Ask Android to observe the paired ESP32 companion device presence and wake the app when it appears.
 - Create up to 10 URL actions.
 - Assign each URL action to a button/GPIO name such as `GPIO27`.
 - Send `GET` or `POST` requests from the phone.
@@ -69,14 +70,14 @@ The app lets you:
 1. Install the debug APK or build it from source.
 2. Open **ESP32 Button Link**.
 3. Grant Bluetooth and notification permissions.
-4. Tap **Select ESP32** and choose `ESP32 Button Link`.
+4. Tap **Pair ESP32** and choose `ESP32 Button Link` in the Android system dialog.
 5. Add a tap/action.
 6. Set **Button / GPIO name** to `GPIO27`.
 7. Set the URL and method.
 8. The listener starts automatically. Use **Stop listener** only when you explicitly want to pause it.
 9. Trigger the ESP32 input.
 
-The app runs a foreground service while listening, so Android shows a persistent notification. Disable battery optimization for the app if your phone stops background BLE connections.
+The app runs a foreground service while listening, so Android shows a persistent notification. During pairing, Android may ask to exclude the app from battery optimization; allow it or set battery usage to **Unrestricted** for production reliability.
 
 ### Build Android APK
 

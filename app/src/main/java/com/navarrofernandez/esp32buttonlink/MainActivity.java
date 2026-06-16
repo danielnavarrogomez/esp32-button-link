@@ -7,10 +7,16 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.companion.AssociationInfo;
+import android.companion.AssociationRequest;
+import android.companion.BluetoothLeDeviceFilter;
+import android.companion.CompanionDeviceManager;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -20,6 +26,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelUuid;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -44,11 +53,15 @@ import com.navarrofernandez.esp32buttonlink.net.EndpointCaller;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_BLE_PERMISSIONS = 7001;
+    private static final int REQUEST_COMPANION_DEVICE = 7002;
+    private static final UUID SERVICE_UUID = UUID.fromString("8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a001");
     private static final String[] ICON_IDS = {"bolt", "garage", "door", "lock", "light", "bell", "web", "home"};
     private static final String[] COLOR_VALUES = {
             "#0B6EFD", "#14B8A6", "#22C55E", "#F59E0B",
@@ -125,7 +138,7 @@ public class MainActivity extends Activity {
 
         Button selectDevice = new Button(this);
         styleAction(selectDevice, R.string.select_ble_device, Color.rgb(11, 110, 253), true);
-        selectDevice.setOnClickListener(v -> showBleDevicePicker());
+        selectDevice.setOnClickListener(v -> startCompanionPairing());
         bleActions.addView(selectDevice, weight());
 
         Button startListener = new Button(this);
@@ -138,6 +151,11 @@ public class MainActivity extends Activity {
         stopListener.setOnClickListener(v -> stopBleListener());
         bleActions.addView(stopListener, weight());
         root.addView(bleActions, matchWrap());
+
+        Button fallbackScan = new Button(this);
+        styleAction(fallbackScan, R.string.fallback_scan, Color.rgb(78, 86, 101), false);
+        fallbackScan.setOnClickListener(v -> showBleDevicePicker());
+        root.addView(fallbackScan, matchWrap());
 
         Button add = new Button(this);
         add.setAllCaps(false);
@@ -405,9 +423,7 @@ public class MainActivity extends Activity {
                 .setTitle(R.string.select_ble_device)
                 .setAdapter(adapterList, (d, which) -> {
                     BluetoothDevice device = devices.get(which);
-                    bleSettings.saveDevice(device.getAddress(), deviceName(device));
-                    updateSelectedDeviceText();
-                    startBleListener();
+                    saveSelectedDevice(device.getAddress(), deviceName(device));
                     stopBleScan(scanner, null);
                 })
                 .setMessage(R.string.scan_empty_hint)
@@ -444,6 +460,91 @@ public class MainActivity extends Activity {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
         }
         mainHandler.postDelayed(() -> stopBleScan(scanner, callback), 10000);
+    }
+
+    private void startCompanionPairing() {
+        if (!ensureBlePermissions()) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                || !getPackageManager().hasSystemFeature(PackageManager.FEATURE_COMPANION_DEVICE_SETUP)) {
+            Toast.makeText(this, R.string.companion_pairing_unavailable, Toast.LENGTH_LONG).show();
+            showBleDevicePicker();
+            return;
+        }
+
+        CompanionDeviceManager manager =
+                (CompanionDeviceManager) getSystemService(COMPANION_DEVICE_SERVICE);
+        if (manager == null) {
+            Toast.makeText(this, R.string.companion_pairing_unavailable, Toast.LENGTH_LONG).show();
+            showBleDevicePicker();
+            return;
+        }
+
+        BluetoothLeDeviceFilter filter = new BluetoothLeDeviceFilter.Builder()
+                .setNamePattern(Pattern.compile("ESP32 Button Link"))
+                .setScanFilter(new ScanFilter.Builder()
+                        .setServiceUuid(new ParcelUuid(SERVICE_UUID))
+                        .build())
+                .build();
+        AssociationRequest request = new AssociationRequest.Builder()
+                .addDeviceFilter(filter)
+                .setSingleDevice(false)
+                .build();
+
+        CompanionDeviceManager.Callback callback = new CompanionDeviceManager.Callback() {
+            @Override
+            public void onDeviceFound(IntentSender chooserLauncher) {
+                launchCompanionChooser(chooserLauncher);
+            }
+
+            @Override
+            public void onAssociationPending(IntentSender intentSender) {
+                launchCompanionChooser(intentSender);
+            }
+
+            @Override
+            public void onAssociationCreated(AssociationInfo associationInfo) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                        && associationInfo.getDeviceMacAddress() != null) {
+                    saveSelectedDevice(
+                            associationInfo.getDeviceMacAddress().toString(),
+                            associationInfo.getDisplayName() == null
+                                    ? "ESP32 Button Link"
+                                    : associationInfo.getDisplayName().toString());
+                }
+            }
+
+            @Override
+            public void onFailure(CharSequence error) {
+                Toast.makeText(
+                        MainActivity.this,
+                        getString(R.string.companion_pairing_failed, error == null ? "unknown" : error),
+                        Toast.LENGTH_LONG).show();
+                showBleDevicePicker();
+            }
+        };
+
+        Toast.makeText(this, R.string.companion_pairing_started, Toast.LENGTH_SHORT).show();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            manager.associate(request, Runnable::run, callback);
+        } else {
+            manager.associate(request, callback, null);
+        }
+    }
+
+    private void launchCompanionChooser(IntentSender chooserLauncher) {
+        try {
+            startIntentSenderForResult(
+                    chooserLauncher,
+                    REQUEST_COMPANION_DEVICE,
+                    null,
+                    0,
+                    0,
+                    0);
+        } catch (IntentSender.SendIntentException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void addBondedDevices(
@@ -498,11 +599,53 @@ public class MainActivity extends Activity {
                         Toast.makeText(this, R.string.invalid_ble_address, Toast.LENGTH_LONG).show();
                         return;
                     }
-                    bleSettings.saveDevice(value, "ESP32 Button Link");
-                    updateSelectedDeviceText();
-                    startBleListener();
+                    saveSelectedDevice(value, "ESP32 Button Link");
                 })
                 .show();
+    }
+
+    private void saveSelectedDevice(String address, String name) {
+        bleSettings.saveDevice(address, name);
+        updateSelectedDeviceText();
+        BleServiceStarter.observePresenceIfPossible(this);
+        startBleListener();
+        requestBatteryOptimizationExemption();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_COMPANION_DEVICE || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+
+        Object selected = data.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE);
+        if (selected instanceof ScanResult) {
+            BluetoothDevice device = ((ScanResult) selected).getDevice();
+            saveSelectedDevice(device.getAddress(), deviceName(device));
+        } else if (selected instanceof BluetoothDevice) {
+            BluetoothDevice device = (BluetoothDevice) selected;
+            saveSelectedDevice(device.getAddress(), deviceName(device));
+        }
+    }
+
+    private void requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return;
+        }
+        PowerManager powerManager = getSystemService(PowerManager.class);
+        if (powerManager == null || powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
+            return;
+        }
+        Toast.makeText(this, R.string.reliability_settings, Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        try {
+            startActivity(intent);
+        } catch (Exception ignored) {
+            Intent settings = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+            startActivity(settings);
+        }
     }
 
     @Override

@@ -25,7 +25,12 @@
     <string name="color_hint">Color hex, e.g. #0B6EFD</string>
     <string name="url_error">URL must start with http:// or https://</string>
     <string name="calling">Calling %1$s</string>
-    <string name="select_ble_device">Select ESP32</string>
+    <string name="select_ble_device">Pair ESP32</string>
+    <string name="fallback_scan">Fallback scan</string>
+    <string name="companion_pairing_unavailable">Companion pairing is unavailable on this phone. Using Bluetooth scan fallback.</string>
+    <string name="companion_pairing_failed">Companion pairing failed: %1$s</string>
+    <string name="companion_pairing_started">Choose ESP32 Button Link in the system dialog.</string>
+    <string name="reliability_settings">Opening battery settings. Set ESP32 Button Link to Unrestricted.</string>
     <string name="manual_address">Manual address</string>
     <string name="manual_ble_address">BLE MAC address</string>
     <string name="scan_failed">BLE scan failed: %1$d</string>
