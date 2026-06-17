@@ -16,10 +16,15 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
 
 import com.navarrofernandez.esp32buttonlink.R;
@@ -170,8 +175,43 @@ public class BleTriggerService extends Service {
         } catch (Exception ignored) {
         }
 
+        alertUser();
         String finalTrigger = trigger;
         executor.execute(() -> callMatchingEndpoint(finalTrigger));
+    }
+
+    private void alertUser() {
+        vibrate();
+        playNotificationSound();
+    }
+
+    private void vibrate() {
+        Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        if (vibrator == null || !vibrator.hasVibrator()) {
+            return;
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createWaveform(
+                        new long[]{0, 120, 80, 160},
+                        -1));
+            } else {
+                vibrator.vibrate(new long[]{0, 120, 80, 160}, -1);
+            }
+        } catch (SecurityException ignored) {
+        }
+    }
+
+    private void playNotificationSound() {
+        try {
+            Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            Ringtone ringtone = RingtoneManager.getRingtone(getApplicationContext(), uri);
+            if (ringtone != null) {
+                ringtone.play();
+            }
+        } catch (Exception error) {
+            Log.w(TAG, "Unable to play notification sound", error);
+        }
     }
 
     private void callMatchingEndpoint(String trigger) {
