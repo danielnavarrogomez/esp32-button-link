@@ -2,6 +2,7 @@
     <string name="app_name">ESP32 Button Link</string>
     <string name="subtitle">Link ESP32 GPIO events to reliable phone-side URL actions.</string>
     <string name="add_tap">Add action</string>
+    <string name="configure_unknown_button">Configure %1$s</string>
     <string name="edit_tap">Edit tap</string>
     <string name="delete_tap">Delete tap?</string>
     <string name="no_taps">No actions configured.</string>

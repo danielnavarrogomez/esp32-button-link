@@ -27,6 +27,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 
+import com.navarrofernandez.esp32buttonlink.MainActivity;
 import com.navarrofernandez.esp32buttonlink.R;
 import com.navarrofernandez.esp32buttonlink.data.EndpointConfig;
 import com.navarrofernandez.esp32buttonlink.data.EndpointRepository;
@@ -50,6 +51,7 @@ public class BleTriggerService extends Service {
     private static final UUID SERVICE_UUID = UUID.fromString("8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a001");
     private static final UUID CHARACTERISTIC_UUID = UUID.fromString("8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a002");
     private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    private static final long UNKNOWN_BUTTON_PROMPT_COOLDOWN_MS = 15000;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -57,6 +59,8 @@ public class BleTriggerService extends Service {
     private String deviceAddress = "";
     private boolean running = false;
     private boolean reconnectScheduled = false;
+    private String lastUnknownButton = "";
+    private long lastUnknownPromptAt = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -225,6 +229,27 @@ public class BleTriggerService extends Service {
             }
         }
         Log.i(TAG, "No endpoint configured for trigger: " + trigger);
+        promptConfigureButton(trigger);
+    }
+
+    private void promptConfigureButton(String buttonName) {
+        long now = System.currentTimeMillis();
+        if (buttonName.equals(lastUnknownButton) &&
+                now - lastUnknownPromptAt < UNKNOWN_BUTTON_PROMPT_COOLDOWN_MS) {
+            return;
+        }
+        lastUnknownButton = buttonName;
+        lastUnknownPromptAt = now;
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setAction(MainActivity.ACTION_CONFIGURE_BUTTON);
+        intent.putExtra(MainActivity.EXTRA_BUTTON_NAME, buttonName);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        try {
+            startActivity(intent);
+        } catch (Exception error) {
+            Log.w(TAG, "Unable to open configure dialog for " + buttonName, error);
+        }
     }
 
     private static String firstPresent(JSONObject object, String fallback, String... keys) {

@@ -59,6 +59,10 @@ import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
+    public static final String ACTION_CONFIGURE_BUTTON =
+            "com.navarrofernandez.esp32buttonlink.CONFIGURE_BUTTON";
+    public static final String EXTRA_BUTTON_NAME = "button_name";
+
     private static final int REQUEST_BLE_PERMISSIONS = 7001;
     private static final int REQUEST_COMPANION_DEVICE = 7002;
     private static final UUID SERVICE_UUID = UUID.fromString("8f3a5c2e-1b7d-4a5e-9c72-4f41c6d7a001");
@@ -100,6 +104,14 @@ public class MainActivity extends Activity {
         endpoints = new ArrayList<>(repository.load());
         render();
         BleServiceStarter.startIfReady(this);
+        handleConfigureButtonIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleConfigureButtonIntent(intent);
     }
 
     private void render() {
@@ -289,8 +301,28 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void handleConfigureButtonIntent(Intent intent) {
+        if (intent == null || !ACTION_CONFIGURE_BUTTON.equals(intent.getAction())) {
+            return;
+        }
+        String buttonName = intent.getStringExtra(EXTRA_BUTTON_NAME);
+        if (buttonName == null || buttonName.trim().isEmpty()) {
+            return;
+        }
+        intent.removeExtra(EXTRA_BUTTON_NAME);
+        mainHandler.post(() -> showEditor(null, buttonName.trim()));
+    }
+
     private void showEditor(EndpointConfig existing) {
+        showEditor(existing, null);
+    }
+
+    private void showEditor(EndpointConfig existing, String presetTrigger) {
         EndpointConfig draft = existing == null ? new EndpointConfig() : copy(existing);
+        if (existing == null && presetTrigger != null && !presetTrigger.trim().isEmpty()) {
+            draft.trigger = presetTrigger.trim();
+            draft.name = presetTrigger.trim();
+        }
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(32, 16, 32, 0);
@@ -329,7 +361,9 @@ public class MainActivity extends Activity {
         form.addView(colorPalette);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(existing == null ? R.string.add_tap : R.string.edit_tap)
+                .setTitle(presetTrigger == null
+                        ? (existing == null ? getString(R.string.add_tap) : getString(R.string.edit_tap))
+                        : getString(R.string.configure_unknown_button, presetTrigger))
                 .setView(form)
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.save, null)
