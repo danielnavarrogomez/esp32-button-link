@@ -32,25 +32,22 @@ The app accepts any of these fields as the logical button name:
 {"name":"GPIO27"}
 ```
 
-The included ESP32 proof-of-concept sends a larger JSON payload:
+The included ESP32 sketch sends a trigger event like this:
 
 ```json
 {
-  "type": "http_post",
-  "url": "https://httpbin.org/post",
-  "content_type": "application/json",
-  "body": {
-    "device": "ESP32 Button Link",
-    "button": "GPIO27",
-    "trigger": "opto_burst",
-    "detail": "10 on/off pulses within 2 seconds",
-    "sequence": 1,
-    "uptime_ms": 12345
-  }
+  "device": "ESP32 Button Link",
+  "event": "button_trigger",
+  "button": "GPIO27",
+  "pin": 27,
+  "press_count": 10,
+  "window_ms": 2000,
+  "sequence": 1,
+  "uptime_ms": 12345
 }
 ```
 
-The app uses `body.button` first when present, so the included sketch maps to the app action named `GPIO27`.
+The app maps this event to the URL action whose **Button / GPIO name** is `GPIO27`.
 
 ## Android App
 
@@ -134,21 +131,67 @@ External signal - -> module input -
 
 Do not connect the external signal directly to ESP32 GPIO pins. Keep it on the optocoupler input side.
 
-### Trigger Logic
+### Configure Inputs
 
-The proof-of-concept sketch:
+The sketch is configured from this array near the top of `ESP32ButtonLink.ino`:
+
+```cpp
+ButtonConfig buttons[] = {
+    {"GPIO27", 27, INPUT_PULLUP, true, 10, 2000, 20, LED_BUILTIN, true, 2000},
+};
+```
+
+Each row is:
+
+```cpp
+{
+  "Button name sent to Android",
+  inputPin,
+  inputMode,
+  activeLow,
+  triggerPressCount,
+  pressWindowMs,
+  debounceMs,
+  outputPin,
+  outputActiveHigh,
+  outputOnMs
+}
+```
+
+Fields:
+
+- `buttonName`: name sent over BLE. The Android action must use the same **Button / GPIO name**.
+- `inputPin`: ESP32 GPIO number to monitor.
+- `inputMode`: usually `INPUT_PULLUP`, `INPUT_PULLDOWN`, or `INPUT`.
+- `activeLow`: `true` when the input is active/pressed at `LOW`; `false` when active/pressed at `HIGH`.
+- `triggerPressCount`: number of completed presses needed to trigger.
+- `pressWindowMs`: time window for the required completed presses.
+- `debounceMs`: debounce time for noisy contacts or optocoupler outputs.
+- `outputPin`: local output to turn on after a trigger, for example `LED_BUILTIN`; use `-1` for no local output.
+- `outputActiveHigh`: `true` if the output turns on at `HIGH`; `false` if it turns on at `LOW`.
+- `outputOnMs`: how long the local output stays on after a trigger.
+
+A completed press is counted when the input returns from active to inactive after debounce.
+
+The default config used in this installation:
 
 - Watches GPIO27.
-- Counts completed on/off pulses.
-- Requires 10 on/off pulses within 2 seconds.
+- Uses `INPUT_PULLUP`.
+- Treats `LOW` as active.
+- Requires 10 completed on/off pulses within 2 seconds.
 - Turns the ESP32 onboard LED on for 2 seconds.
 - Sends a BLE notification with `button:"GPIO27"`.
 
-Change this constant to map another ESP32 input name to the Android app:
+To add another input, add another row:
 
 ```cpp
-const char *buttonName = "GPIO27";
+ButtonConfig buttons[] = {
+    {"GPIO27", 27, INPUT_PULLUP, true, 10, 2000, 20, LED_BUILTIN, true, 2000},
+    {"GPIO26", 26, INPUT_PULLUP, true, 3, 1000, 20, LED_BUILTIN, true, 1000},
+};
 ```
+
+Then add an Android action whose **Button / GPIO name** matches the new name, for example `GPIO26`.
 
 ### Upload With Arduino CLI
 
