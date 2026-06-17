@@ -59,6 +59,7 @@ The app lets you:
 - Ask Android to observe the paired ESP32 companion device presence and wake the app when it appears.
 - Create up to 10 URL actions.
 - Assign each URL action to a button/GPIO name such as `GPIO27`.
+- Open a pre-filled configuration dialog when the ESP32 sends a new, unconfigured button name.
 - Send `GET` or `POST` requests from the phone.
 - Add Basic Auth or form/query variables.
 
@@ -75,6 +76,30 @@ The app lets you:
 9. Trigger the ESP32 input.
 
 The app runs a foreground service while listening, so Android shows a persistent notification. During pairing, Android may ask to exclude the app from battery optimization; allow it or set battery usage to **Unrestricted** for production reliability.
+
+### Unknown Button Setup Flow
+
+The ESP32 can be configured with more GPIO inputs than the phone app currently has actions for. When the app receives a BLE event for an unconfigured button name, it opens **ESP32 Button Link** and shows a pre-filled action editor.
+
+Example:
+
+1. ESP32 sends:
+
+   ```json
+   {"event":"button_trigger","button":"GPIO26"}
+   ```
+
+2. If no action has **Button / GPIO name** set to `GPIO26`, the app opens **Configure GPIO26**.
+3. The form is pre-filled with:
+
+   ```text
+   Name: GPIO26
+   Button / GPIO name: GPIO26
+   ```
+
+4. Enter the URL/method and save.
+
+The app rate-limits this prompt for the same unknown button so repeated signals do not spam dialogs.
 
 ### Build Android APK
 
@@ -191,7 +216,7 @@ ButtonConfig buttons[] = {
 };
 ```
 
-Then add an Android action whose **Button / GPIO name** matches the new name, for example `GPIO26`.
+When the ESP32 sends `GPIO26` for the first time, the Android app can also open a pre-filled configuration dialog automatically. You can either create the Android action manually first, or let the first trigger from the new input prompt you to configure it.
 
 ### Upload With Arduino CLI
 
@@ -202,7 +227,11 @@ arduino-cli compile --fqbn esp32:esp32:esp32:UploadSpeed=115200 esp32/ESP32Butto
 arduino-cli upload -p /dev/cu.usbserial-1420 --fqbn esp32:esp32:esp32:UploadSpeed=115200 esp32/ESP32ButtonLink
 ```
 
-Use the serial port that matches your ESP32.
+Use the serial port that matches your ESP32. On macOS it may change between sessions, for example `/dev/cu.usbserial-1410` or `/dev/cu.usbserial-1420`. You can list connected boards with:
+
+```bash
+arduino-cli board list
+```
 
 ## Security Notes
 
